@@ -18,7 +18,7 @@ const toStr = (c: unknown) => (typeof c === "string" ? c : JSON.stringify(c ?? "
 const MARK_CONTENT = "]]>openui:content";
 const MARK_CONTEXT = "]]>openui:context";
 
-export function splitOpenUI(raw: unknown): { text: string; context: unknown } {
+function splitOpenUI(raw: unknown): { text: string; context: unknown } {
   const content = toStr(raw);
   const ci = content.indexOf(MARK_CONTEXT);
   if (ci < 0) return { text: content.replace(MARK_CONTENT, "").trim(), context: null };
@@ -54,7 +54,7 @@ function findContact(node: unknown): Record<string, { value?: unknown }> | null 
 export type Contact = { name: string | null; email: string | null; company: string | null; phone: string | null; consent: boolean };
 
 /** Pull contact details out of the most recent form submission, if any. */
-export function extractContact(messages: Msg[]): Contact | null {
+function extractContact(messages: Msg[]): Contact | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const { context } = splitOpenUI(messages[i]?.content);
     const c = findContact(context);
@@ -78,7 +78,7 @@ export function isSubmission(messages: Msg[]): boolean {
 }
 
 /** A compact, human-readable transcript: user text as typed; assistant copy pulled from the Lang. */
-export function readableTranscript(messages: Msg[]): { role: string; text: string }[] {
+function readableTranscript(messages: Msg[]): { role: string; text: string }[] {
   return messages
     .map((m) => {
       const { text } = splitOpenUI(m.content);
@@ -110,34 +110,59 @@ solution.pattern: one of document_extraction, triage_and_routing, drafting, qa_o
 
 type Extracted = { answers?: Record<string, unknown>; fit?: unknown; solution?: unknown };
 
-async function runExtraction(transcript: { role: string; text: string }[]): Promise<Extracted> {
-  if (config.mode !== "direct") return {};
-  const client = new OpenAI({ apiKey: config.llm.apiKey, baseURL: config.llm.baseUrl });
-  const convo = transcript.map((t) => `${t.role.toUpperCase()}: ${t.text}`).join("\n");
+/** Pull a JSON object out of a model reply that may wrap it in fences or prose. */
+function parseJsonObject(raw: string): Extracted | null {
+  const text = raw.replace(/```json\s*|\s*```/g, "").trim();
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  // Brace-match from the first "{" so trailing prose does not break the slice.
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}" && --depth === 0) {
+      end = i;
+      break;
+    }
+  }
+  const slice = text.slice(start, end < 0 ? undefined : end + 1).replace(/,\s*([}\]])/g, "$1"); // drop trailing commas
+  try {
+    return JSON.parse(slice) as Extracted;
+  } catch {
+    return null;
+  }
+}
+
+async function callExtraction(client: OpenAI, convo: string, strictness: string): Promise<string> {
   // Reasoning off: this is a JSON extraction task where reasoning models otherwise spend
   // the whole budget thinking and return no content. `reasoning` is an OpenRouter extension.
   const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & { reasoning?: { enabled: boolean } } = {
-    model: config.llm.model,
+    model: config.llm.extractModel,
     max_tokens: 1400,
     messages: [
       { role: "system", content: EXTRACT_PROMPT },
-      { role: "user", content: `Transcript:\n${convo}\n\nReturn the JSON now.` },
+      { role: "user", content: `Transcript:\n${convo}\n\n${strictness}` },
     ],
   };
   if (config.llm.disableReasoning) params.reasoning = { enabled: false };
   const res = await client.chat.completions.create(params);
-  const usage = res.usage;
-  if (usage) console.log(`[capture] extraction tokens: ${usage.total_tokens} (prompt ${usage.prompt_tokens})`);
-  const raw = res.choices?.[0]?.message?.content ?? "";
-  const json = raw.replace(/```json\s*|\s*```/g, "").trim();
-  const start = json.indexOf("{");
-  const end = json.lastIndexOf("}");
-  if (start < 0 || end < 0) return {};
-  try {
-    return JSON.parse(json.slice(start, end + 1)) as Extracted;
-  } catch {
-    return {};
-  }
+  if (res.usage) console.log(`[capture] extraction tokens: ${res.usage.total_tokens} (prompt ${res.usage.prompt_tokens})`);
+  return res.choices?.[0]?.message?.content ?? "";
+}
+
+async function runExtraction(transcript: { role: string; text: string }[]): Promise<Extracted> {
+  if (config.mode !== "direct") return {};
+  const client = new OpenAI({ apiKey: config.llm.apiKey, baseURL: config.llm.baseUrl });
+  const convo = transcript.map((t) => `${t.role.toUpperCase()}: ${t.text}`).join("\n");
+
+  const first = parseJsonObject(await callExtraction(client, convo, "Return the JSON now."));
+  if (first) return first;
+  // One retry: free models occasionally emit malformed or prose-wrapped JSON.
+  console.warn("[capture] extraction JSON did not parse, retrying once");
+  const retry = parseJsonObject(
+    await callExtraction(client, convo, "Output ONLY the minified JSON object on a single line. No prose, no code fences."),
+  );
+  return retry ?? {};
 }
 
 export type CaptureOpts = { sessionId: string; startedAt: string; completed: boolean };

@@ -110,3 +110,7 @@ export function listStaleOpen(olderThanMs: number): SessionRow[] {
     .prepare(`SELECT * FROM sessions WHERE status = 'open' AND updated_at < ?`)
     .all(cutoff) as SessionRow[];
 }
+
+export function closeStore(): void {
+  db?.close();
+}

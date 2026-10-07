@@ -3,9 +3,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
 import { directReply, llmMode, mockReply, noticeReply } from "./llm";
-import { getState, initHarness, recordTurn } from "./harness";
+import { closeHarness, getState, initHarness, recordTurn } from "./harness";
 import { capture, isSubmission } from "./capture";
-import { finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
+import { closeStore, finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
 
 await initHarness();
 initStore();
@@ -153,6 +153,17 @@ app.post("/api/mri-chat/finalize", async (c) => {
   return c.json({ ok: true });
 });
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
+const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`[server] http://localhost:${info.port}  (llm: ${llmMode()})`);
 });
+
+// Close the HTTP listener and both SQLite handles cleanly on shutdown.
+async function shutdown(signal: string): Promise<void> {
+  console.log(`[server] ${signal} received, shutting down`);
+  server.close();
+  await closeHarness().catch(() => {});
+  closeStore();
+  process.exit(0);
+}
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));

@@ -43,5 +43,8 @@ export const config = {
     // and emit nothing. OpenRouter's `reasoning: { enabled: false }` makes them answer
     // directly — faster and more reliable for both the UI Lang and the JSON extraction.
     disableReasoning: env("LLM_DISABLE_REASONING", "true") !== "false",
+    // The end-of-session JSON extraction can use a different (more reliable) model than the
+    // chat. Defaults to the chat model. Set e.g. google/gemini-2.5-flash for clean JSON.
+    extractModel: env("LLM_EXTRACT_MODEL") || env("LLM_MODEL", "openai/gpt-4o-mini"),
   },
 };

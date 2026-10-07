@@ -105,21 +105,32 @@ Open http://localhost:5173.
   against the live agent — run them with `npm run test:acceptance` in `server/` (the server must be
   running). Caps and cost controls are in: a per-client/day new-session cap
   (`SESSIONS_PER_IP_PER_DAY`), the hard 10-turn budget, and per-turn + per-extraction token logging.
+- **Phase 5 (polish & push):** code reviewed and documented; the branch is ready to push to a remote
+  for review. The push itself needs the destination repo.
 
-> **Heads-up on the free tier.** OpenRouter's free models are capped at **50 requests/day** per key
-> (shared pool, and also subject to 429s under load). Adding **$10 of credits** raises this to 1000
-> free requests/day and unlocks cheap paid models. For a live demo, set `LLM_MODEL` to a paid model
-> (e.g. `google/gemini-2.5-flash`). When the limit is hit the server falls back to mock mode so the UI
-> never breaks.
+### Model & limits
 
-### A note on the model
+- **Free tier:** OpenRouter caps free models at **50 requests/day** per key (shared pool, 429s under
+  load). Adding **$10 of credits** raises this to 1000/day and unlocks cheap paid models. When a call
+  fails the server falls back to **mock** mode, so the UI never breaks.
+- **Reasoning models** on the free pool can spend their whole token budget thinking and return an
+  empty reply. Two mitigations: `LLM_MAX_TOKENS` (default 1500) leaves room for the UI Lang after any
+  reasoning, and `LLM_DISABLE_REASONING` (default on) sends OpenRouter `reasoning:{enabled:false}` so
+  the model answers directly — faster and more reliable.
+- **For a live demo**, set `LLM_MODEL` to a cheap paid model such as `google/gemini-2.5-flash` for
+  speed and reliability.
 
-Reasoning models on OpenRouter's **free** pool can exhaust their token budget on hidden reasoning and
-return an empty reply, which renders nothing. Two mitigations are in place: `LLM_MAX_TOKENS` (default
-1500) leaves room for the UI Lang after reasoning, and the default free model
-(`apodex/apodex-1.1-mini:free`) returns content reliably on multi-turn. For a live demo, set
-`LLM_MODEL` to a cheap paid model (e.g. `google/gemini-2.5-flash`) on your own key — the shared free
-pool also rate-limits (429) under load.
+## Testing
+
+```bash
+cd server && npm run typecheck          # strict TS, no unused locals, covers src + test
+npm run test:acceptance                 # the 8 skill scenarios (server must be running)
+```
+
+`test/acceptance.mts` drives each scenario through the live agent and asserts both the on-screen
+behaviour and the stored payload (fit verdict, solution pattern, contact, `completed` flag). Because
+the agent is a live model, a few semantic checks are heuristic; each scenario prints its transcript so
+borderline cases can be eyeballed.
 
 ## Layout
 
@@ -127,7 +138,7 @@ pool also rate-limits (429) under load.
 .claude/skills/business-mri-chat/   the agent's behavioural spec (the MRI Phase 0 skill)
 server/                             Pi Durable agent service
   src/config.ts                     env + direct/mock mode switch, model + max-tokens
-  src/harness.ts                    Pi Durable harness, SQLite, turn recording
+  src/harness.ts                    Pi Durable harness: durable, resumable transcript (data/mri.sqlite)
   src/mri-prompt.ts                 the MRI agent system prompt (from the skill) + UI mapping
   src/llm.ts                        external LLM call (direct) + mock OpenUI Lang stream
   src/capture.ts                    end-of-session extraction -> output-schema JSON

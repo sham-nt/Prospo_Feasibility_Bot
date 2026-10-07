@@ -6,13 +6,16 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { config } from "./config";
 
+// Pi Durable owns the durable, resumable conversation: every turn is appended to a
+// SQLite-backed transcript that survives a server restart (see `harness.resume()`),
+// which is the durability guarantee this layer exists to demonstrate. The structured
+// capture that becomes a lead lives separately in the sessions store (see store.ts);
+// the two are intentionally distinct — one is the raw conversation, one is the payload.
+
 /** Chord context used for every durable call. BACKGROUND_CONTEXT never cancels. */
 export const ctx = BACKGROUND_CONTEXT;
 
-/**
- * Spike-level app state: a running count of recorded turns, committed next to
- * the transcript. Phase 3 replaces this with the full captured-field document.
- */
+/** A running count of recorded turns, committed alongside the durable transcript. */
 const Stats = defineDoc<{ messages: number }>({
   kind: "app.stats",
   version: 1,
@@ -31,7 +34,7 @@ export async function initHarness(): Promise<void> {
   const dbPath = resolve(process.cwd(), config.dbPath);
   mkdirSync(dirname(dbPath), { recursive: true });
 
-  const models = createModels(); // no provider: the spike records turns, it does not generate
+  const models = createModels(); // no provider: this layer records turns, the LLM call lives in llm.ts
   const registry = createRegistry();
   const storage = await openNodeSqliteStorage(dbPath);
 
