@@ -24,6 +24,9 @@ export const config = {
   corsOrigin: env("CORS_ORIGIN", "http://localhost:5173"),
   dbPath: env("DB_PATH", "./data/mri.sqlite"),
 
+  // An open session idle longer than this is finalized as abandoned on the next sweep.
+  abandonAfterMs: Number(env("ABANDON_AFTER_MINUTES", "30")) * 60_000,
+
   mode: resolveMode(),
 
   // The external LLM: any OpenAI-compatible endpoint (OpenRouter by default).
@@ -34,5 +37,9 @@ export const config = {
     // Cap per reply. Must cover reasoning tokens + the UI Lang, or reasoning models
     // can finish before emitting any content. A contact-form turn needs ~600 Lang tokens.
     maxTokens: Number(env("LLM_MAX_TOKENS", "1500")),
+    // Many free models reason first; on some tasks they spend the whole budget thinking
+    // and emit nothing. OpenRouter's `reasoning: { enabled: false }` makes them answer
+    // directly — faster and more reliable for both the UI Lang and the JSON extraction.
+    disableReasoning: env("LLM_DISABLE_REASONING", "true") !== "false",
   },
 };

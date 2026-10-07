@@ -4,8 +4,41 @@ import { cors } from "hono/cors";
 import { config } from "./config";
 import { directReply, llmMode, mockReply } from "./llm";
 import { getState, initHarness, recordTurn } from "./harness";
+import { capture, isSubmission } from "./capture";
+import { finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
 
 await initHarness();
+initStore();
+
+type ChatMessage = { role: string; content?: unknown };
+
+/** Build the output-schema payload for a session and persist it. Runs off the hot path. */
+async function finalize(
+  sessionId: string,
+  messages: ChatMessage[],
+  startedAt: string,
+  status: "completed" | "abandoned",
+): Promise<void> {
+  try {
+    const payload = await capture(messages, { sessionId, startedAt, completed: status === "completed" });
+    finalizeSession(sessionId, payload, status);
+    const fit = (payload.fit as { verdict?: string } | null)?.verdict ?? "-";
+    console.log(`[capture] finalized ${sessionId} (${status}, fit=${fit})`);
+  } catch (err) {
+    console.error(`[capture] finalize ${sessionId} failed: ${(err as Error).message}`);
+  }
+}
+
+/** On startup, finalize sessions left open past the idle window as abandoned (still a lead). */
+async function sweepAbandoned(): Promise<void> {
+  const stale = listStaleOpen(config.abandonAfterMs);
+  for (const row of stale) {
+    const msgs = JSON.parse(row.draft ?? "[]") as ChatMessage[];
+    await finalize(row.session_id, msgs, row.created_at, "abandoned");
+  }
+  if (stale.length) console.log(`[sweep] finalized ${stale.length} abandoned session(s)`);
+}
+await sweepAbandoned();
 
 const app = new Hono();
 
@@ -15,7 +48,13 @@ app.get("/health", (c) => c.json({ ok: true, gateway: llmMode() }));
 
 app.get("/api/debug/state", async (c) => c.json(await getState()));
 
-type ChatMessage = { role: string; content?: unknown };
+app.get("/api/debug/sessions", (c) => c.json({ sessions: listSessions() }));
+
+app.get("/api/debug/sessions/:id", (c) => {
+  const row = getSession(c.req.param("id"));
+  if (!row) return c.json({ error: "not found" }, 404);
+  return c.json({ ...row, payload: row.payload ? JSON.parse(row.payload) : null, draft: undefined });
+});
 
 function lastUserText(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -42,17 +81,27 @@ function turnNudge(messages: ChatMessage[]): string {
 }
 
 app.post("/api/mri-chat", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { messages?: ChatMessage[] };
-  const userText = lastUserText(body.messages ?? []);
+  const body = (await c.req.json().catch(() => ({}))) as { messages?: ChatMessage[]; threadId?: string };
+  const messages = body.messages ?? [];
+  const sessionId = body.threadId?.trim() || "anonymous";
+  const userText = lastUserText(messages);
 
   await recordTurn("user", userText);
+  // Persist the running transcript so an abandoned chat still has something to extract.
+  const existing = getSession(sessionId);
+  touchSession(sessionId, messages);
+  const startedAt = existing?.created_at ?? new Date().toISOString();
+
+  // A contact-form submission ends the session: capture + persist in the background so it
+  // does not delay the assistant's confirmation reply.
+  if (isSubmission(messages)) void finalize(sessionId, messages, startedAt, "completed");
 
   if (config.mode === "direct") {
     try {
       return await directReply({
-        messages: body.messages ?? [],
+        messages,
         signal: c.req.raw.signal,
-        nudge: turnNudge(body.messages ?? []),
+        nudge: turnNudge(messages),
         onComplete: (text: string) => void recordTurn("assistant", text).catch(() => {}),
       });
     } catch (err) {
@@ -64,6 +113,19 @@ app.post("/api/mri-chat", async (c) => {
   const { assistantText, response } = mockReply(userText);
   await recordTurn("assistant", assistantText);
   return response;
+});
+
+// Abandon beacon / explicit end. The frontend can POST here on unload; the startup sweep
+// is the backstop for sessions that never send it.
+app.post("/api/mri-chat/finalize", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { threadId?: string; completed?: boolean };
+  const sessionId = body.threadId?.trim();
+  if (!sessionId) return c.json({ error: "threadId required" }, 400);
+  const row = getSession(sessionId);
+  if (!row || row.status !== "open") return c.json({ ok: true, already: row?.status ?? "unknown" });
+  const msgs = JSON.parse(row.draft ?? "[]") as ChatMessage[];
+  await finalize(sessionId, msgs, row.created_at, body.completed ? "completed" : "abandoned");
+  return c.json({ ok: true });
 });
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {

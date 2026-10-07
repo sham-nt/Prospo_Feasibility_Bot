@@ -45,10 +45,15 @@ async function streamChat(opts: {
   // Throws here on auth/billing/model errors, before streaming — caller may fall back.
   // max_tokens must leave room for the UI Lang AFTER any reasoning tokens: reasoning
   // models that run out of budget mid-think return empty content and render nothing.
-  const upstream = await opts.client.chat.completions.create(
-    { model: opts.model, messages: opts.messages as never, stream: true, max_tokens: config.llm.maxTokens },
-    { signal: opts.signal },
-  );
+  // `reasoning` is an OpenRouter extension, not in the OpenAI SDK types.
+  const params: OpenAI.Chat.ChatCompletionCreateParamsStreaming & { reasoning?: { enabled: boolean } } = {
+    model: opts.model,
+    messages: opts.messages as never,
+    stream: true,
+    max_tokens: config.llm.maxTokens,
+  };
+  if (config.llm.disableReasoning) params.reasoning = { enabled: false };
+  const upstream = await opts.client.chat.completions.create(params, { signal: opts.signal });
 
   const enc = new TextEncoder();
   let full = "";

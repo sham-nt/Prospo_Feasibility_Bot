@@ -93,9 +93,21 @@ Open http://localhost:5173.
   turn 10. Verified live: the high-volume happy path reaches a **good** fit and renders the contact
   form; a rare/organisational problem reaches an honest **poor** fit ("AI is not the first fix here");
   a prompt-injection attempt is ignored.
-- Next (Phase 3): structured capture to the spec's output schema (`{layer, sub}` tags, fit signals,
-  solution pattern, contact) into a `sessions` table, completion + abandon finalisation, and caps.
-  Then the full eight acceptance tests (Phase 4).
+- **Phase 3 (capture & persistence): done.** At the end of a session the transcript becomes the
+  spec's output-schema JSON — contact details parsed deterministically from the submitted form, and
+  the problem / process / size / handling / five fit signals / solution pattern from one cheap
+  extraction call ([`server/src/capture.ts`](server/src/capture.ts)) — stored in a `sessions` SQLite
+  table shaped like 12C's future Postgres `enquiries` + `payload jsonb`
+  ([`server/src/store.ts`](server/src/store.ts)). A form submission finalises the session as
+  `completed`; the `POST /api/mri-chat/finalize` beacon and a startup sweep finalise abandoned
+  sessions as `completed: false` (still a lead). Inspect with `GET /api/debug/sessions`.
+- Next (Phase 4): walk the eight acceptance tests; add per-session token and per-IP/day caps.
+
+> **Heads-up on the free tier.** OpenRouter's free models are capped at **50 requests/day** per key
+> (shared pool, and also subject to 429s under load). Adding **$10 of credits** raises this to 1000
+> free requests/day and unlocks cheap paid models. For a live demo, set `LLM_MODEL` to a paid model
+> (e.g. `google/gemini-2.5-flash`). When the limit is hit the server falls back to mock mode so the UI
+> never breaks.
 
 ### A note on the model
 
@@ -115,7 +127,10 @@ server/                             Pi Durable agent service
   src/harness.ts                    Pi Durable harness, SQLite, turn recording
   src/mri-prompt.ts                 the MRI agent system prompt (from the skill) + UI mapping
   src/llm.ts                        external LLM call (direct) + mock OpenUI Lang stream
-  src/index.ts                      Hono HTTP: /api/mri-chat, /health, /api/debug/state; turn backstop
+  src/capture.ts                    end-of-session extraction -> output-schema JSON
+  src/store.ts                      sessions SQLite table (mirrors enquiries + payload jsonb)
+  src/index.ts                      Hono HTTP: /api/mri-chat(/finalize), /health, /api/debug/*; turn backstop
+  data/sessions.sqlite              captured sessions (gitignored)
   prompts/openui-chat.system.txt    generated OpenUI Lang prompt (artifact; see web/ gen:prompt)
 web/                                OpenUI generative-UI frontend
   src/App.tsx                       AgentInterface wired to the backend
@@ -126,4 +141,6 @@ web/                                OpenUI generative-UI frontend
 ```bash
 curl -s http://localhost:8787/health              # { ok, gateway: "direct" | "mock" }
 curl -s http://localhost:8787/api/debug/state     # { messages, usage } from the durable store
+curl -s http://localhost:8787/api/debug/sessions  # captured sessions (status, contact, problem)
+curl -s http://localhost:8787/api/debug/sessions/<threadId>  # one session with its full payload
 ```
