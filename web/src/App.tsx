@@ -19,39 +19,39 @@ const llm = fetchLLM({
   messageFormat: openAIMessageFormat,
 });
 
-// Neutral-first theme in the spirit of shadcn/ui, Linear and Geist: a single
-// zinc grey scale, near-black as the one "accent", hairline borders, modest radii.
-// No decorative colour — semantic tones live only in callouts, muted.
+// Dark theme in the aesthetic of ogha.ai: near-black canvas with an emerald/teal
+// aurora, off-white text, one emerald accent, Bricolage Grotesque headings over
+// Geist body, generous radii. Surfaces/backgrounds are driven in index.css.
 const brandTheme = createTheme({
-  fontBody: '"Inter", system-ui, sans-serif',
-  fontHeading: '"Inter", system-ui, sans-serif',
-  fontLabel: '"Inter", system-ui, sans-serif',
-  fontNumbers: '"Inter", system-ui, sans-serif',
+  fontBody: '"Geist", system-ui, sans-serif',
+  fontHeading: '"Bricolage Grotesque", "Geist", system-ui, sans-serif',
+  fontLabel: '"Geist", system-ui, sans-serif',
+  fontNumbers: '"Geist", system-ui, sans-serif',
 
-  // The primary/interactive colour is near-black, not a hue.
-  interactiveAccentDefault: "#18181b",
-  interactiveAccentHover: "#27272a",
-  interactiveAccentPressed: "#09090b",
-  interactiveAccentDisabled: "#d4d4d8",
-  textBrand: "#18181b",
-  textAccentPrimary: "#18181b",
-  textNeutralLink: "#18181b",
-  borderAccent: "#18181b",
-  borderAccentEmphasis: "#18181b",
-  borderAccentSelected: "#18181b",
+  // The accent is emerald; white pill CTAs are handled in index.css.
+  interactiveAccentDefault: "#10a37f",
+  interactiveAccentHover: "#13b88f",
+  interactiveAccentPressed: "#0d8a6b",
+  interactiveAccentDisabled: "#2a2f2c",
+  textBrand: "#f5f5f0",
+  textAccentPrimary: "#2ee6b0",
+  textNeutralLink: "#2ee6b0",
+  borderAccent: "#10a37f",
+  borderAccentEmphasis: "#10a37f",
+  borderAccentSelected: "#10a37f",
 
-  textNeutralPrimary: "#18181b",
-  textNeutralSecondary: "#52525b",
-  textNeutralTertiary: "#a1a1aa",
-  borderDefault: "#e4e4e7",
+  textNeutralPrimary: "#f5f5f0",
+  textNeutralSecondary: "#b3b3ad",
+  textNeutralTertiary: "#7a7a73",
+  borderDefault: "rgba(245, 245, 240, 0.12)",
 
-  // User turn: a solid near-black bubble, the one dark element.
-  chatUserResponseBg: "#18181b",
-  chatUserResponseText: "#fafafa",
+  // User turn: an off-white pill, echoing ogha's white CTAs.
+  chatUserResponseBg: "#f5f5f0",
+  chatUserResponseText: "#050505",
 
-  radiusM: "8px",
-  radiusL: "10px",
-  radiusXl: "12px",
+  radiusM: "10px",
+  radiusL: "14px",
+  radiusXl: "18px",
 });
 
 export function App() {
@@ -59,6 +59,7 @@ export function App() {
     <div className="mri-app">
       <header className="mri-topbar">
         <div className="mri-brand">
+          <span className="mri-logo-mark" aria-hidden="true" />
           <span className="mri-logo">{PRODUCT}</span>
           <span className="mri-brand-sub">by {COMPANY} Studios</span>
         </div>
@@ -72,14 +73,10 @@ export function App() {
         {/* Landing hero. Collapses once the first message is sent (see index.css :has()). */}
         <section className="mri-hero" aria-hidden="false">
           <div className="mri-hero-inner">
-            <div className="mri-hero-mark" aria-hidden="true">
-              <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
-                <rect x="1" y="1" width="46" height="46" rx="12" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
-                <path d="M15 30c3-10 7-15 9-15s3 4 3 9c0 4 1 6 2 6s2-2 4-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="33" cy="17" r="2.2" fill="currentColor" />
-              </svg>
-            </div>
-            <span className="mri-hero-badge">AI readiness check</span>
+            <span className="mri-hero-badge">
+              <span className="mri-hero-badge-dot" />
+              AI readiness check
+            </span>
             <h1 className="mri-hero-title">See where AI actually fits in your business</h1>
             <p className="mri-hero-sub">
               Describe one task that eats time or money. In a few short questions {PRODUCT} tells you,
@@ -95,7 +92,7 @@ export function App() {
             llm={llm}
             componentLibrary={openuiChatLibrary}
             agentName={PRODUCT}
-            theme={{ mode: "light", lightTheme: brandTheme }}
+            theme={{ mode: "dark", darkTheme: brandTheme }}
           />
         </div>
       </main>

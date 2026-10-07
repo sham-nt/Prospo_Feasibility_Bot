@@ -140,6 +140,33 @@ export function mockReply(userText: string): { assistantText: string; response: 
   return { assistantText: lang, response: sseResponse(stream) };
 }
 
+/**
+ * The closing confirmation after the visitor submits the contact form. Deterministic so the
+ * agent cannot loop back and re-ask for details: once the form is in, this is the whole reply.
+ */
+export function thankYouReply(name?: string | null): { assistantText: string; response: Response } {
+  const who = name && name.trim() ? `, ${forLang(name.trim())}` : "";
+  const lang = [
+    "root = Card([header, note, close])",
+    `header = CardHeader("Thanks${who}")`,
+    'note = Callout("success", "We will be in touch", "Someone from the 12C team will review what you shared and reach out to you shortly.")',
+    'close = TextContent("That is everything we need for now. You can close this window, and we will take it from here.")',
+  ].join("\n");
+  const pieces: string[] = [];
+  for (let i = 0; i < lang.length; i += 48) pieces.push(lang.slice(i, i + 48));
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const enc = new TextEncoder();
+      controller.enqueue(enc.encode(mockChunk({ role: "assistant" }, null)));
+      for (const piece of pieces) controller.enqueue(enc.encode(mockChunk({ content: piece }, null)));
+      controller.enqueue(enc.encode(mockChunk({}, "stop")));
+      controller.enqueue(enc.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return { assistantText: lang, response: sseResponse(stream) };
+}
+
 /** A single-card notice streamed as an OpenAI SSE stream (e.g. a rate-limit message). */
 export function noticeReply(title: string, body: string): Response {
   const lang = [

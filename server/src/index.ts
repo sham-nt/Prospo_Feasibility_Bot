@@ -2,9 +2,9 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import { directReply, llmMode, mockReply, noticeReply } from "./llm";
+import { directReply, llmMode, mockReply, noticeReply, thankYouReply } from "./llm";
 import { closeHarness, getState, initHarness, recordTurn } from "./harness";
-import { capture, isSubmission } from "./capture";
+import { capture, extractContact, isSubmission } from "./capture";
 import { closeStore, finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
 
 await initHarness();
@@ -117,9 +117,15 @@ app.post("/api/mri-chat", async (c) => {
   touchSession(sessionId, messages);
   const startedAt = existing?.created_at ?? new Date().toISOString();
 
-  // A contact-form submission ends the session: capture + persist in the background so it
-  // does not delay the assistant's confirmation reply.
-  if (isSubmission(messages)) void finalize(sessionId, messages, startedAt, "completed");
+  // A contact-form submission ends the session: capture + persist in the background, and reply
+  // with a fixed thank-you. This is deterministic on purpose — letting the LLM answer here made
+  // it loop and re-ask for the same details instead of closing out.
+  if (isSubmission(messages)) {
+    void finalize(sessionId, messages, startedAt, "completed");
+    const { assistantText, response } = thankYouReply(extractContact(messages)?.name);
+    await recordTurn("assistant", assistantText);
+    return response;
+  }
 
   if (config.mode === "direct") {
     try {

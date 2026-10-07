@@ -54,7 +54,7 @@ function findContact(node: unknown): Record<string, { value?: unknown }> | null 
 export type Contact = { name: string | null; email: string | null; company: string | null; phone: string | null; consent: boolean };
 
 /** Pull contact details out of the most recent form submission, if any. */
-function extractContact(messages: Msg[]): Contact | null {
+export function extractContact(messages: Msg[]): Contact | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const { context } = splitOpenUI(messages[i]?.content);
     const c = findContact(context);
