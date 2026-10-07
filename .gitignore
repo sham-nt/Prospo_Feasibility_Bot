@@ -32,3 +32,6 @@ npm-debug.log*
 
 # claude code local settings (per-user)
 .claude/settings.local.json
+
+# TS build cache
+*.tsbuildinfo

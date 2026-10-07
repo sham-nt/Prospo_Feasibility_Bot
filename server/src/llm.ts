@@ -111,14 +111,28 @@ function mockChunk(delta: Record<string, unknown>, finish: string | null): strin
   return `data: ${JSON.stringify(payload)}\n\n`;
 }
 
-/** MOCK: canned OpenUI Lang as an OpenAI SSE stream. No network; used with no key or as a fallback. */
+/** MOCK: canned OpenUI Lang as an OpenAI SSE stream. No network; used with no key or as a fallback.
+ * It renders a representative multi-component card so the UI stays useful (and reviewable) offline. */
 export function mockReply(userText: string): { assistantText: string; response: Response } {
   const said = userText ? `You said: ${forLang(userText)}` : "Tell me what is taking too much time or money.";
   const lang = [
-    "root = Card([header, intro, said])",
-    'header = CardHeader("12C AI assistant", "Phase 0 · mock")',
-    'intro = TextContent("I am 12C\'s AI assistant. A few questions and I will tell you whether AI would actually help.")',
+    "root = Card([header, note, said, verdict, body, steps, form])",
+    'header = CardHeader("12C AI assistant", "Business MRI · Phase 0")',
+    'note = Callout("info", "Offline preview", "Add OpenRouter credits or a key to run the live agent. This is a sample of what it renders.")',
     `said = TextContent("${forLang(said)}")`,
+    'verdict = Callout("success", "AI looks like a good fit", "It repeats often, the rules are clear, and the data already exists.")',
+    'body = TextContent("12C would read each item as it arrives and put the data where it needs to go, flagging the ones it is unsure about so a person checks those rather than all of them.")',
+    "steps = Steps([s1, s2, s3])",
+    's1 = StepsItem("A short Business MRI call", "Confirm how the work arrives and where it needs to go.")',
+    's2 = StepsItem("Pilot on your real data", "Run it against a sample and check the numbers.")',
+    's3 = StepsItem("Go live on the flagged items", "The system handles the clear ones; your team reviews the exceptions.")',
+    'form = Form("contact", contactButtons, [fcName, fcEmail])',
+    "contactButtons = Buttons([submitBtn])",
+    'submitBtn = Button("Send to 12C", { type: "continue_conversation", context: "Here are my contact details." }, "primary")',
+    'fcName = FormControl("Name", nameInput)',
+    'nameInput = Input("name", "Your name", "text", { required: true })',
+    'fcEmail = FormControl("Work email", emailInput)',
+    'emailInput = Input("email", "you@company.com", "email", { required: true, email: true })',
   ].join("\n");
 
   const pieces: string[] = [];

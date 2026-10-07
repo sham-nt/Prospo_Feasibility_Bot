@@ -1,0 +1,297 @@
+/* 12C Business MRI — Phase 0: brand shell + OpenUI polish.
+   Loaded after the OpenUI stylesheet so these rules win. */
+
+:root {
+  --mri-ink: #14131b;
+  --mri-ink-2: #1d1b27;
+  --mri-accent: oklch(0.52 0.2 274);
+  --mri-accent-soft: oklch(0.52 0.2 274 / 0.12);
+  --mri-canvas-top: #f6f7fb;
+  --mri-canvas-bot: #eef0f7;
+  --mri-card: #ffffff;
+  --mri-hairline: oklch(0.24 0.03 271 / 0.1);
+  --mri-shadow: 0 1px 2px oklch(0.2 0.03 271 / 0.04), 0 8px 24px -12px oklch(0.2 0.03 271 / 0.18);
+  --mri-shadow-strong: 0 2px 4px oklch(0.2 0.03 271 / 0.06), 0 18px 40px -16px oklch(0.2 0.03 271 / 0.26);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- App shell ---------- */
+
+.mri-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(99, 76, 230, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--mri-canvas-top), var(--mri-canvas-bot));
+}
+
+/* Branded top bar */
+.mri-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 22px;
+  color: #fff;
+  background: linear-gradient(100deg, var(--mri-ink), var(--mri-ink-2));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 rgba(20, 19, 27, 0.04), 0 10px 30px -18px rgba(20, 19, 27, 0.5);
+  position: relative;
+  z-index: 5;
+}
+.mri-topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--mri-accent), transparent);
+  opacity: 0.7;
+}
+
+.mri-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mri-logo {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff, #c9c6ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.mri-brand-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.mri-brand-sub {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.72);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mri-brand-phase {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #d7d4ff;
+  background: rgba(124, 101, 255, 0.18);
+  border: 1px solid rgba(124, 101, 255, 0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.mri-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.66);
+}
+.mri-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+}
+
+/* Stage holds the AgentInterface */
+.mri-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* ---------- OpenUI AgentInterface overrides ---------- */
+
+/* Our top bar replaces the library chrome */
+.openui-agent-sidebar-container,
+.openui-agent-mobile-header,
+.openui-agent-thread-header {
+  display: none !important;
+}
+
+.openui-agent-container,
+.openui-agent-thread-container,
+.openui-agent-thread-wrapper,
+.openui-agent-thread-chat-panel,
+.openui-agent-thread-scroll-container,
+.openui-agent-thread-scroll-area {
+  background: transparent !important;
+  height: 100%;
+}
+
+/* Centered, focused conversation column */
+.openui-agent-thread-messages {
+  max-width: 780px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 30px 20px 12px;
+}
+
+/* User turn: compact dark ink bubble */
+.openui-shell-thread-message-user__content {
+  border-radius: 14px 14px 4px 14px !important;
+  padding: 11px 15px !important;
+  font-size: 14.5px;
+  line-height: 1.5;
+  box-shadow: var(--mri-shadow);
+}
+
+/* Assistant card: give it a real surface, hairline and soft shadow */
+.openui-shell-thread-message-assistant__content .openui-card-card,
+.openui-shell-thread-message-assistant__content .openui-card-full {
+  background: var(--mri-card);
+  border: 1px solid var(--mri-hairline);
+  border-radius: 16px;
+  box-shadow: var(--mri-shadow);
+  padding: 20px 22px;
+}
+
+/* CardHeader */
+.openui-header-top-left {
+  font-family: "Inter", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* TextContent reads a touch larger and softer */
+.openui-text-content {
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* Form controls */
+.openui-input,
+.openui-text-content input,
+textarea {
+  border-radius: 10px !important;
+}
+.openui-label {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Callouts: sharp tinted cards with an accent edge, per variant */
+.openui-callout {
+  border-radius: 12px !important;
+  padding: 12px 14px !important;
+  border: 1px solid var(--mri-hairline);
+  border-left: 3px solid var(--mri-accent);
+}
+.openui-callout-title {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.openui-callout-info {
+  background: oklch(0.55 0.2 274 / 0.06);
+  border-color: oklch(0.55 0.2 274 / 0.18);
+  border-left-color: var(--mri-accent);
+}
+.openui-callout-success {
+  background: oklch(0.62 0.15 150 / 0.09);
+  border-color: oklch(0.55 0.13 150 / 0.22);
+  border-left-color: oklch(0.58 0.15 150);
+}
+.openui-callout-warning {
+  background: oklch(0.82 0.15 85 / 0.14);
+  border-color: oklch(0.7 0.14 80 / 0.3);
+  border-left-color: oklch(0.72 0.15 68);
+}
+.openui-callout-error,
+.openui-callout-danger {
+  background: oklch(0.63 0.2 27 / 0.08);
+  border-color: oklch(0.63 0.2 27 / 0.22);
+  border-left-color: oklch(0.6 0.2 27);
+}
+.openui-callout-neutral {
+  background: oklch(0.5 0.02 271 / 0.05);
+  border-color: var(--mri-hairline);
+  border-left-color: oklch(0.5 0.02 271 / 0.4);
+}
+
+/* Steps: accent-tinted number chips */
+.openui-step-number-inner {
+  background: var(--mri-accent-soft) !important;
+  color: var(--mri-accent) !important;
+  font-weight: 600 !important;
+}
+.openui-step-title {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Primary buttons get a little lift */
+.openui-button-base-primary {
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px oklch(0.52 0.2 274 / 0.3), 0 8px 18px -8px oklch(0.52 0.2 274 / 0.5) !important;
+}
+
+/* Composer (bottom input bar): a floating, blurred card centered under the column */
+.openui-agent-composer-slot,
+.openui-agent-thread-composer {
+  max-width: 780px;
+  margin: 0 auto;
+  width: 100%;
+}
+.openui-agent-composer-slot {
+  padding-bottom: 14px;
+}
+.openui-agent-thread-composer__input-wrapper {
+  border-radius: 16px !important;
+  border: 1px solid var(--mri-hairline) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--mri-shadow-strong);
+}
+
+/* Starter chips */
+.openui-conversation-starter,
+[class*="conversation-starter"] {
+  border-radius: 999px !important;
+}
+
+/* Scrollbar */
+.openui-agent-thread-scroll-area::-webkit-scrollbar {
+  width: 10px;
+}
+.openui-agent-thread-scroll-area::-webkit-scrollbar-thumb {
+  background: oklch(0.24 0.03 271 / 0.16);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.openui-agent-thread-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.24 0.03 271 / 0.28);
+  background-clip: content-box;
+}
