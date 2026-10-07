@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import { gatewayMode, mockReply, realReply } from "./gateway";
+import { directReply, gatewayMode, mockReply, thesysReply } from "./gateway";
 import { getState, initHarness, recordTurn } from "./harness";
 
 await initHarness();
@@ -31,15 +31,16 @@ app.post("/api/mri-chat", async (c) => {
 
   await recordTurn("user", userText);
 
-  if (!config.mockGateway) {
+  if (config.mode !== "mock") {
     try {
-      return await realReply({
+      const opts = {
         messages: body.messages ?? [],
         signal: c.req.raw.signal,
-        onComplete: (text) => void recordTurn("assistant", text).catch(() => {}),
-      });
+        onComplete: (text: string) => void recordTurn("assistant", text).catch(() => {}),
+      };
+      return config.mode === "direct" ? await directReply(opts) : await thesysReply(opts);
     } catch (err) {
-      console.error(`[gateway] real call failed, falling back to mock: ${(err as Error).message}`);
+      console.error(`[gateway] ${config.mode} call failed, falling back to mock: ${(err as Error).message}`);
       // fall through to mock below
     }
   }

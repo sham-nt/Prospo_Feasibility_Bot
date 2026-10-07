@@ -22,14 +22,24 @@ web/  (Vite + React 19, Thesys OpenUI)          server/  (Node + TS, long-lived)
                                            Thesys gateway (api.thesys.dev) ──▶ the LLM (managed)
 ```
 
-- **Thesys OpenUI** owns the model call and the generative UI: the frontend's `AgentInterface`
-  POSTs to the backend, which proxies the Thesys gateway and streams back OpenUI Lang that the
-  `Renderer` turns into live components.
+- **OpenUI (Thesys open source)** owns the generative UI: the frontend's `AgentInterface` renders
+  the OpenUI Lang the model emits. Rendering is entirely local — it needs no Thesys service.
 - **Pi Durable** owns durable, resumable session state in local SQLite (and, in later phases, the
   captured-field documents, usage/cost, and abandon finalization).
-- **Model access:** Managed free tier — the server holds only `THESYS_API_KEY`; the gateway calls
-  the model. No local LLM, no provider key on the machine. (The free tier may use request data for
-  training, so only feed it synthetic/test problems; switch to BYOK in the Thesys console for real use.)
+
+### Model access — three modes (`LLM_MODE`, auto-selected)
+
+| Mode | How the model is reached | What you need |
+|---|---|---|
+| **direct** (recommended) | Your own OpenAI-compatible provider (OpenRouter, OpenAI, …). The OpenUI Lang prompt is generated **locally** from the chat library (`server/prompts/openui-chat.system.txt`). **No Thesys, no hosted gateway.** | `LLM_API_KEY` (+ `LLM_BASE_URL`, `LLM_MODEL`) |
+| **thesys** | The Thesys hosted gateway assembles the prompt and routes the model. | `THESYS_API_KEY` (the Managed free tier still needs billing/credits or BYOK on the Thesys side) |
+| **mock** | Canned OpenUI Lang, no network. | nothing |
+
+`LLM_MODE=auto` picks `direct` if `LLM_API_KEY` is set, else `thesys` if `THESYS_API_KEY` is set,
+else `mock`. Any mode falls back to `mock` if the provider call errors, so the UI never breaks.
+
+The base OpenUI Lang prompt is a generated artifact — regenerate it after a react-ui upgrade with
+`npm run gen:prompt` in `web/`.
 
 ## Prerequisites
 
@@ -58,13 +68,14 @@ cd web && npm run dev
 
 Open http://localhost:5173.
 
-### Mock vs real gateway
+### Picking a mode
 
-- **Mock mode (default when `THESYS_API_KEY` is empty):** the server streams canned OpenUI Lang, so
-  the frontend, transport, rendering and Pi Durable persistence all work offline, with no key and no
-  network. `GET /health` reports `"gateway":"mock"`.
-- **Real gateway:** put a real `THESYS_API_KEY` in `server/.env`. (The real Autofix-wrapped gateway
-  call is wired in a later step; see `server/src/gateway.ts`.)
+- **Direct (recommended):** put an OpenRouter (or other OpenAI-compatible) key in `LLM_API_KEY` in
+  `server/.env`, set `LLM_MODEL` to a model that provider offers, and restart. `GET /health` reports
+  `"gateway":"direct"`. This bypasses Thesys entirely.
+- **Thesys:** set `THESYS_API_KEY` (and leave `LLM_API_KEY` empty). Needs billing/credits set up on
+  the Thesys account.
+- **Mock:** leave both keys empty.
 
 ## Current status
 
