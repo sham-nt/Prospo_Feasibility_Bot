@@ -13,36 +13,39 @@ const llm = fetchLLM({
   messageFormat: openAIMessageFormat,
 });
 
-// 12C brand theme: a confident indigo accent, ink-dark user bubbles, Inter type,
-// and a little more radius than the default for a sharper, modern feel.
+// Neutral-first theme in the spirit of shadcn/ui, Linear and Geist: a single
+// zinc grey scale, near-black as the one "accent", hairline borders, modest radii.
+// No decorative colour — semantic tones live only in callouts, muted.
 const brandTheme = createTheme({
   fontBody: '"Inter", system-ui, sans-serif',
   fontHeading: '"Inter", system-ui, sans-serif',
   fontLabel: '"Inter", system-ui, sans-serif',
   fontNumbers: '"Inter", system-ui, sans-serif',
 
-  interactiveAccentDefault: "oklch(0.52 0.20 274)",
-  interactiveAccentHover: "oklch(0.47 0.20 274)",
-  interactiveAccentPressed: "oklch(0.43 0.19 274)",
-  borderAccent: "oklch(0.52 0.20 274 / 0.45)",
-  borderAccentEmphasis: "oklch(0.52 0.20 274 / 0.85)",
-  borderAccentSelected: "oklch(0.52 0.20 274 / 0.85)",
-  textBrand: "oklch(0.50 0.20 274)",
-  textAccentPrimary: "oklch(0.50 0.20 274)",
-  textNeutralLink: "oklch(0.50 0.20 274)",
+  // The primary/interactive colour is near-black, not a hue.
+  interactiveAccentDefault: "#18181b",
+  interactiveAccentHover: "#27272a",
+  interactiveAccentPressed: "#09090b",
+  interactiveAccentDisabled: "#d4d4d8",
+  textBrand: "#18181b",
+  textAccentPrimary: "#18181b",
+  textNeutralLink: "#18181b",
+  borderAccent: "#18181b",
+  borderAccentEmphasis: "#18181b",
+  borderAccentSelected: "#18181b",
 
-  textNeutralPrimary: "oklch(0.24 0.02 271)",
-  textNeutralSecondary: "oklch(0.45 0.015 271)",
-  textNeutralTertiary: "oklch(0.60 0.012 271)",
-  borderDefault: "oklch(0.24 0.03 271 / 0.09)",
+  textNeutralPrimary: "#18181b",
+  textNeutralSecondary: "#52525b",
+  textNeutralTertiary: "#a1a1aa",
+  borderDefault: "#e4e4e7",
 
-  // User turn: a dark ink bubble with light text — crisp and modern.
-  chatUserResponseBg: "oklch(0.26 0.02 271)",
-  chatUserResponseText: "oklch(0.98 0.003 271)",
+  // User turn: a solid near-black bubble, the one dark element.
+  chatUserResponseBg: "#18181b",
+  chatUserResponseText: "#fafafa",
 
-  radiusM: "10px",
-  radiusL: "14px",
-  radiusXl: "18px",
+  radiusM: "8px",
+  radiusL: "10px",
+  radiusXl: "12px",
 });
 
 export function App() {
@@ -51,10 +54,9 @@ export function App() {
       <header className="mri-topbar">
         <div className="mri-brand">
           <span className="mri-logo">12C</span>
-          <span className="mri-brand-divider" />
-          <span className="mri-brand-sub">
-            Business MRI <span className="mri-brand-phase">Phase 0</span>
-          </span>
+          <span className="mri-brand-sep">/</span>
+          <span className="mri-brand-sub">Business MRI</span>
+          <span className="mri-brand-phase">Phase&nbsp;0</span>
         </div>
         <div className="mri-status">
           <span className="mri-status-dot" />

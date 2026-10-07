@@ -92,46 +92,19 @@ export function readableTranscript(messages: Msg[]): { role: string; text: strin
     .filter((t) => t.text);
 }
 
-const EXTRACT_PROMPT = `You extract structured data from a finished sales-discovery chat. Return ONLY a JSON object, no prose, no code fences.
+const EXTRACT_PROMPT = `Extract structured data from a finished sales-discovery chat. Output MINIFIED JSON only — one line, no comments, no code fences, no text before or after. Keep every string value under 160 characters.
 
-The visitor described one business problem and an assistant judged whether AI fits. Produce:
+Shape:
+{"answers":{"<id>":{"value":"...","mri":{"layer":"...","sub":"..."}}},"fit":{"verdict":"good|partial|poor","signals":{"repetition":"yes|no|unknown","describable_judgement":"...","available_input":"...","tolerable_error":"...","number_attached":"..."}},"solution":{"pattern":"...|null","summary":"...|null","caveat":"...|null"}}
 
-{
-  "answers": {
-    // include ONLY fields actually established in the transcript; omit the rest.
-    // each value is { "value": <string>, "mri": { "layer": <layer>, "sub": <sub> } }
-    "p0.problem":  // the problem in the visitor's words        -> layer "opportunity", sub "Pain Points"
-    "p0.process":  // best-fit process, you assign it           -> layer "business",    sub "<process>"
-    "p0.function": // parent function of that process            -> layer "business",    sub "<process>"
-    "p0.volume":   // how many / how often                       -> layer "business",    sub "<process>"
-    "p0.effort":   // time taken or people involved              -> layer "opportunity", sub "Bottlenecks"
-    "p0.cost":     // cost or value at stake                     -> layer "opportunity", sub "Bottlenecks"
-    "p0.pain":     // errors, delays, rework                     -> layer "opportunity", sub "Bottlenecks"
-    "p0.who":      // who does it today                          -> layer "business",    sub "<process>"
-    "p0.systems":  // systems/spreadsheets/email/paper           -> layer "enterprise",  sub "Systems"
-    "p0.data":     // where info lives, how reliable             -> layer "enterprise",  sub "Data"
-    "p0.judgement":// whether a person must decide, on what basis-> layer "opportunity", sub "Constraints"
-    "p0.tried":    // anything already tried, incl. AI           -> layer "opportunity", sub "Readiness"
-  },
-  "fit": {
-    "verdict": "good" | "partial" | "poor",
-    "signals": {
-      "repetition": "yes"|"no"|"unknown",
-      "describable_judgement": "yes"|"no"|"unknown",
-      "available_input": "yes"|"no"|"unknown",
-      "tolerable_error": "yes"|"no"|"unknown",
-      "number_attached": "yes"|"no"|"unknown"
-    }
-  },
-  "solution": {
-    "pattern": one of ["document_extraction","triage_and_routing","drafting","qa_over_documents","reconciliation_and_matching","exception_monitoring","planning_support"] or null when fit is poor,
-    "summary": plain-language proposal with the human-in-the-loop gate, or null,
-    "caveat": what 12C would need to check, or null
-  }
-}
+answers: include ONLY ids actually established; omit the rest. Valid ids and their mri {layer,sub}:
+- p0.problem {opportunity, Pain Points}; p0.process & p0.function & p0.who & p0.volume & p0.trigger {business, <process>}
+- p0.effort & p0.cost & p0.pain {opportunity, Bottlenecks}; p0.judgement {opportunity, Constraints}; p0.tried {opportunity, Readiness}
+- p0.systems {enterprise, Systems}; p0.data {enterprise, Data}
+<process> = the process you assign, e.g. "Procure to Pay".
 
-Fit rule: 4-5 signals "yes" => good; 2-3 => partial; 0-1 => poor. Be honest; poor is a valid answer.
-<process> is the process name you assigned (e.g. "Procure to Pay"). Use null for a field you cannot fill.`;
+fit: score 5 signals yes/no/unknown; 4-5 yes=good, 2-3=partial, 0-1=poor. Be honest.
+solution.pattern: one of document_extraction, triage_and_routing, drafting, qa_over_documents, reconciliation_and_matching, exception_monitoring, planning_support — or null when fit is poor. summary = proposal with the human-in-the-loop gate; caveat = what to check.`;
 
 type Extracted = { answers?: Record<string, unknown>; fit?: unknown; solution?: unknown };
 
@@ -143,7 +116,7 @@ async function runExtraction(transcript: { role: string; text: string }[]): Prom
   // the whole budget thinking and return no content. `reasoning` is an OpenRouter extension.
   const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & { reasoning?: { enabled: boolean } } = {
     model: config.llm.model,
-    max_tokens: 900,
+    max_tokens: 1400,
     messages: [
       { role: "system", content: EXTRACT_PROMPT },
       { role: "user", content: `Transcript:\n${convo}\n\nReturn the JSON now.` },
