@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import { directReply, gatewayMode, mockReply, thesysReply } from "./gateway";
+import { directReply, llmMode, mockReply } from "./llm";
 import { getState, initHarness, recordTurn } from "./harness";
 
 await initHarness();
@@ -11,7 +11,7 @@ const app = new Hono();
 
 app.use("/api/*", cors({ origin: config.corsOrigin, allowMethods: ["GET", "POST", "OPTIONS"] }));
 
-app.get("/health", (c) => c.json({ ok: true, gateway: gatewayMode() }));
+app.get("/health", (c) => c.json({ ok: true, gateway: llmMode() }));
 
 app.get("/api/debug/state", async (c) => c.json(await getState()));
 
@@ -31,16 +31,15 @@ app.post("/api/mri-chat", async (c) => {
 
   await recordTurn("user", userText);
 
-  if (config.mode !== "mock") {
+  if (config.mode === "direct") {
     try {
-      const opts = {
+      return await directReply({
         messages: body.messages ?? [],
         signal: c.req.raw.signal,
         onComplete: (text: string) => void recordTurn("assistant", text).catch(() => {}),
-      };
-      return config.mode === "direct" ? await directReply(opts) : await thesysReply(opts);
+      });
     } catch (err) {
-      console.error(`[gateway] ${config.mode} call failed, falling back to mock: ${(err as Error).message}`);
+      console.error(`[llm] direct call failed, falling back to mock: ${(err as Error).message}`);
       // fall through to mock below
     }
   }
@@ -51,5 +50,5 @@ app.post("/api/mri-chat", async (c) => {
 });
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`[server] http://localhost:${info.port}  (gateway: ${gatewayMode()})`);
+  console.log(`[server] http://localhost:${info.port}  (llm: ${llmMode()})`);
 });

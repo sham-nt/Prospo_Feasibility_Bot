@@ -13,30 +13,33 @@ The conversation behaviour is specified in the
 ## Architecture
 
 ```
-web/  (Vite + React 19, Thesys OpenUI)          server/  (Node + TS, long-lived)
+web/  (Vite + React 19, OpenUI)                 server/  (Node + TS, long-lived)
   AgentInterface  ──POST /api/mri-chat (SSE)──▶    Hono HTTP + Pi Durable harness
   renders OpenUI Lang via the chat library          ├─ records turns to SQLite (durable, resumable)
-                                                     ├─ calls the Thesys gateway (OpenAI-compatible)
+  (100% local, no external service)                 ├─ calls your external LLM (OpenAI-compatible)
                                                      └─ streams OpenUI Lang back as OpenAI SSE
                                                           │
-                                           Thesys gateway (api.thesys.dev) ──▶ the LLM (managed)
+                                       OpenRouter (api/v1, OpenAI-compatible) ──▶ your chosen model
 ```
 
-- **OpenUI (Thesys open source)** owns the generative UI: the frontend's `AgentInterface` renders
-  the OpenUI Lang the model emits. Rendering is entirely local — it needs no Thesys service.
+- **OpenUI** (the open-source `@openuidev/*` libraries) owns the generative UI: the frontend's
+  `AgentInterface` renders the OpenUI Lang the model emits. Rendering is **entirely local** — it needs
+  no external service. The Lang prompt that teaches the model the format is generated locally too.
 - **Pi Durable** owns durable, resumable session state in local SQLite (and, in later phases, the
-  captured-field documents, usage/cost, and abandon finalization).
+  captured-field documents, usage/cost, and abandon finalization). It records turns; it does **not**
+  make the model call.
+- **The LLM is fully external** — one outbound HTTPS call from the server to OpenRouter (or any
+  OpenAI-compatible endpoint) with your own key. No hosted gateway sits in between.
 
-### Model access — three modes (`LLM_MODE`, auto-selected)
+### Model access — two modes (`LLM_MODE`, auto-selected)
 
 | Mode | How the model is reached | What you need |
 |---|---|---|
-| **direct** (recommended) | Your own OpenAI-compatible provider (OpenRouter, OpenAI, …). The OpenUI Lang prompt is generated **locally** from the chat library (`server/prompts/openui-chat.system.txt`). **No Thesys, no hosted gateway.** | `LLM_API_KEY` (+ `LLM_BASE_URL`, `LLM_MODEL`) |
-| **thesys** | The Thesys hosted gateway assembles the prompt and routes the model. | `THESYS_API_KEY` (the Managed free tier still needs billing/credits or BYOK on the Thesys side) |
+| **direct** | Your own OpenAI-compatible provider (OpenRouter, OpenAI, …). The OpenUI Lang prompt is generated **locally** from the chat library (`server/prompts/openui-chat.system.txt`). | `LLM_API_KEY` (+ `LLM_BASE_URL`, `LLM_MODEL`) |
 | **mock** | Canned OpenUI Lang, no network. | nothing |
 
-`LLM_MODE=auto` picks `direct` if `LLM_API_KEY` is set, else `thesys` if `THESYS_API_KEY` is set,
-else `mock`. Any mode falls back to `mock` if the provider call errors, so the UI never breaks.
+`LLM_MODE=auto` picks `direct` if `LLM_API_KEY` is set, else `mock`. Direct mode falls back to `mock`
+if the provider call errors, so the UI never breaks.
 
 The base OpenUI Lang prompt is a generated artifact — regenerate it after a react-ui upgrade with
 `npm run gen:prompt` in `web/`.
@@ -44,7 +47,7 @@ The base OpenUI Lang prompt is a generated artifact — regenerate it after a re
 ## Prerequisites
 
 - Node.js 20+ (developed on Node 25)
-- A Thesys account + `THESYS_API_KEY` (free tier) — only needed to leave mock mode; see below.
+- An OpenRouter (or other OpenAI-compatible) API key — only needed to leave mock mode; see below.
 
 ## Setup
 
@@ -70,37 +73,36 @@ Open http://localhost:5173.
 
 ### Picking a mode
 
-- **Direct (recommended):** put an OpenRouter (or other OpenAI-compatible) key in `LLM_API_KEY` in
-  `server/.env`, set `LLM_MODEL` to a model that provider offers, and restart. `GET /health` reports
-  `"gateway":"direct"`. This bypasses Thesys entirely.
-- **Thesys:** set `THESYS_API_KEY` (and leave `LLM_API_KEY` empty). Needs billing/credits set up on
-  the Thesys account.
-- **Mock:** leave both keys empty.
+- **Direct:** put an OpenRouter (or other OpenAI-compatible) key in `LLM_API_KEY` in `server/.env`,
+  set `LLM_MODEL` to a model that provider offers, and restart. `GET /health` reports
+  `"gateway":"direct"`.
+- **Mock:** leave `LLM_API_KEY` empty.
 
 ## Current status
 
 - **Phase 1 (integration spike): done.** End-to-end round-trip proven — `AgentInterface` → backend
   SSE of OpenUI Lang → rendered chat-library components; turns persisted to SQLite and resumed across
   a server restart; mock mode runs with no key.
-- Next: real gateway call behind the key, then the full 7-stage MRI agent, structured capture to the
-  spec's output schema, and the 8 acceptance tests.
+- Next: live external-LLM call behind the key (OpenRouter), then the full 7-stage MRI agent,
+  structured capture to the spec's output schema, and the 8 acceptance tests.
 
 ## Layout
 
 ```
 .claude/skills/business-mri-chat/   the agent's behavioural spec (the MRI Phase 0 skill)
 server/                             Pi Durable agent service
-  src/config.ts                     env + mock/real gateway switch
+  src/config.ts                     env + direct/mock mode switch
   src/harness.ts                    Pi Durable harness, SQLite, turn recording
-  src/gateway.ts                    mock OpenUI Lang stream (real gateway: TODO behind key)
+  src/llm.ts                        external LLM call (direct) + mock OpenUI Lang stream
   src/index.ts                      Hono HTTP: /api/mri-chat, /health, /api/debug/state
-web/                                Thesys generative-UI frontend
+  prompts/openui-chat.system.txt    generated OpenUI Lang prompt (artifact; see web/ gen:prompt)
+web/                                OpenUI generative-UI frontend
   src/App.tsx                       AgentInterface wired to the backend
 ```
 
 ## Useful checks
 
 ```bash
-curl -s http://localhost:8787/health              # { ok, gateway: "mock" | "real" }
+curl -s http://localhost:8787/health              # { ok, gateway: "direct" | "mock" }
 curl -s http://localhost:8787/api/debug/state     # { messages, usage } from the durable store
 ```

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "12C Business MRI Phase 0 — Thesys generative-UI frontend",
+  "description": "12C Business MRI Phase 0 — OpenUI generative-UI frontend",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -1,4 +1,3 @@
-import { generateSystemPrompt } from "@openuidev/lang-core";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import OpenAI from "openai";
@@ -73,8 +72,9 @@ async function streamChat(opts: {
 
 /**
  * DIRECT: your own OpenAI-compatible provider (OpenRouter, OpenAI, …) with the
- * OpenUI Lang prompt generated locally. No Thesys, no hosted gateway, no billing
- * beyond your own provider. The model emits OpenUI Lang; the frontend renders it.
+ * OpenUI Lang prompt generated locally. The LLM is fully external — your key,
+ * your provider, no hosted gateway. The model emits OpenUI Lang; the frontend
+ * renders it locally.
  */
 export function directReply(opts: ReplyOpts): Promise<Response> {
   const client = new OpenAI({ apiKey: config.llm.apiKey, baseURL: config.llm.baseUrl });
@@ -84,17 +84,6 @@ export function directReply(opts: ReplyOpts): Promise<Response> {
     ...opts.messages.map((m) => ({ role: m.role, content: toText(m.content) })),
   ];
   return streamChat({ client, model: config.llm.model, messages, signal: opts.signal, onComplete: opts.onComplete });
-}
-
-/** THESYS: the hosted gateway, which assembles the OpenUI Lang prompt server-side. */
-export function thesysReply(opts: ReplyOpts): Promise<Response> {
-  const client = new OpenAI({ apiKey: config.thesys.apiKey, baseURL: config.thesys.baseUrl });
-  const system = String(generateSystemPrompt({ cloud: true, instructions: MRI_INSTRUCTIONS }));
-  const messages = [
-    { role: "system", content: system },
-    ...opts.messages.map((m) => ({ role: m.role, content: toText(m.content) })),
-  ];
-  return streamChat({ client, model: config.thesys.model, messages, signal: opts.signal, onComplete: opts.onComplete });
 }
 
 // ---- mock ----
@@ -117,7 +106,7 @@ export function mockReply(userText: string): { assistantText: string; response: 
   const said = userText ? `You said: ${forLang(userText)}` : "Tell me what is taking too much time or money.";
   const lang = [
     "root = Card([header, intro, said])",
-    'header = CardHeader("12C AI assistant", "Phase 0 · mock gateway")',
+    'header = CardHeader("12C AI assistant", "Phase 0 · mock")',
     'intro = TextContent("I am 12C\'s AI assistant. A few questions and I will tell you whether AI would actually help.")',
     `said = TextContent("${forLang(said)}")`,
   ].join("\n");
@@ -139,4 +128,4 @@ export function mockReply(userText: string): { assistantText: string; response: 
   return { assistantText: lang, response: sseResponse(stream) };
 }
 
-export const gatewayMode = () => config.mode;
+export const llmMode = () => config.mode;
