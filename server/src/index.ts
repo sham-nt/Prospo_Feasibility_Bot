@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import { gatewayMode, mockReply } from "./gateway";
+import { gatewayMode, mockReply, realReply } from "./gateway";
 import { getState, initHarness, recordTurn } from "./harness";
 
 await initHarness();
@@ -31,10 +31,21 @@ app.post("/api/mri-chat", async (c) => {
 
   await recordTurn("user", userText);
 
-  // Mock mode until THESYS_API_KEY is set (see gateway.ts realReply path).
+  if (!config.mockGateway) {
+    try {
+      return await realReply({
+        messages: body.messages ?? [],
+        signal: c.req.raw.signal,
+        onComplete: (text) => void recordTurn("assistant", text).catch(() => {}),
+      });
+    } catch (err) {
+      console.error(`[gateway] real call failed, falling back to mock: ${(err as Error).message}`);
+      // fall through to mock below
+    }
+  }
+
   const { assistantText, response } = mockReply(userText);
   await recordTurn("assistant", assistantText);
-
   return response;
 });
 
