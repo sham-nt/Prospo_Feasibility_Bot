@@ -97,13 +97,15 @@ const EXTRACT_PROMPT = `Extract structured data from a finished sales-discovery 
 Shape:
 {"answers":{"<id>":{"value":"...","mri":{"layer":"...","sub":"..."}}},"fit":{"verdict":"good|partial|poor","signals":{"repetition":"yes|no|unknown","describable_judgement":"...","available_input":"...","tolerable_error":"...","number_attached":"..."}},"solution":{"pattern":"...|null","summary":"...|null","caveat":"...|null"}}
 
-answers: include ONLY ids actually established; omit the rest. Valid ids and their mri {layer,sub}:
+answers: use ONLY these ids, never invent others; include only the ones actually established and omit the rest. Each id's mri {layer,sub} is fixed:
 - p0.problem {opportunity, Pain Points}; p0.process & p0.function & p0.who & p0.volume & p0.trigger {business, <process>}
 - p0.effort & p0.cost & p0.pain {opportunity, Bottlenecks}; p0.judgement {opportunity, Constraints}; p0.tried {opportunity, Readiness}
 - p0.systems {enterprise, Systems}; p0.data {enterprise, Data}
-<process> = the process you assign, e.g. "Procure to Pay".
+<process> = the process you assign, e.g. "Procure to Pay" (same string for every business-layer sub).
 
-fit: score 5 signals yes/no/unknown; 4-5 yes=good, 2-3=partial, 0-1=poor. Be honest.
+fit.signals: each value MUST be exactly one word — "yes", "no" or "unknown". Never a sentence. Score all five:
+repetition (happens many times, similar shape), describable_judgement (a person can state the rule), available_input (the information already exists somewhere), tolerable_error (a wrong answer is recoverable), number_attached (a time/cost/error-rate/delay is given).
+fit.verdict: 4-5 "yes" => good; 2-3 => partial; 0-1 => poor. Be honest.
 solution.pattern: one of document_extraction, triage_and_routing, drafting, qa_over_documents, reconciliation_and_matching, exception_monitoring, planning_support — or null when fit is poor. summary = proposal with the human-in-the-loop gate; caveat = what to check.`;
 
 type Extracted = { answers?: Record<string, unknown>; fit?: unknown; solution?: unknown };

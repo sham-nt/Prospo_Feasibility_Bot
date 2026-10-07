@@ -26,6 +26,8 @@ export const config = {
 
   // An open session idle longer than this is finalized as abandoned on the next sweep.
   abandonAfterMs: Number(env("ABANDON_AFTER_MINUTES", "30")) * 60_000,
+  // Abuse cap: new sessions allowed per client per day (in-memory; resets on restart).
+  sessionsPerIpPerDay: Number(env("SESSIONS_PER_IP_PER_DAY", "50")),
 
   mode: resolveMode(),
 

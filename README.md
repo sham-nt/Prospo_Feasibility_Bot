@@ -101,7 +101,10 @@ Open http://localhost:5173.
   ([`server/src/store.ts`](server/src/store.ts)). A form submission finalises the session as
   `completed`; the `POST /api/mri-chat/finalize` beacon and a startup sweep finalise abandoned
   sessions as `completed: false` (still a lead). Inspect with `GET /api/debug/sessions`.
-- Next (Phase 4): walk the eight acceptance tests; add per-session token and per-IP/day caps.
+- **Phase 4 (acceptance + guardrails): done.** All eight acceptance scenarios from the skill pass
+  against the live agent — run them with `npm run test:acceptance` in `server/` (the server must be
+  running). Caps and cost controls are in: a per-client/day new-session cap
+  (`SESSIONS_PER_IP_PER_DAY`), the hard 10-turn budget, and per-turn + per-extraction token logging.
 
 > **Heads-up on the free tier.** OpenRouter's free models are capped at **50 requests/day** per key
 > (shared pool, and also subject to 429s under load). Adding **$10 of credits** raises this to 1000
@@ -129,7 +132,8 @@ server/                             Pi Durable agent service
   src/llm.ts                        external LLM call (direct) + mock OpenUI Lang stream
   src/capture.ts                    end-of-session extraction -> output-schema JSON
   src/store.ts                      sessions SQLite table (mirrors enquiries + payload jsonb)
-  src/index.ts                      Hono HTTP: /api/mri-chat(/finalize), /health, /api/debug/*; turn backstop
+  src/index.ts                      Hono HTTP: /api/mri-chat(/finalize), /health, /api/debug/*; turn + abuse caps
+  test/acceptance.mts               the 8 acceptance scenarios (npm run test:acceptance)
   data/sessions.sqlite              captured sessions (gitignored)
   prompts/openui-chat.system.txt    generated OpenUI Lang prompt (artifact; see web/ gen:prompt)
 web/                                OpenUI generative-UI frontend

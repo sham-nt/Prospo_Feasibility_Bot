@@ -51,6 +51,7 @@ async function streamChat(opts: {
     messages: opts.messages as never,
     stream: true,
     max_tokens: config.llm.maxTokens,
+    stream_options: { include_usage: true }, // final chunk carries token usage for cost logging
   };
   if (config.llm.disableReasoning) params.reasoning = { enabled: false };
   const upstream = await opts.client.chat.completions.create(params, { signal: opts.signal });
@@ -63,6 +64,7 @@ async function streamChat(opts: {
         for await (const part of upstream) {
           const piece = part.choices?.[0]?.delta?.content ?? "";
           if (piece) full += piece;
+          if (part.usage) console.log(`[llm] turn tokens: ${part.usage.total_tokens} (prompt ${part.usage.prompt_tokens})`);
           controller.enqueue(enc.encode(`data: ${JSON.stringify(part)}\n\n`));
         }
         controller.enqueue(enc.encode("data: [DONE]\n\n"));
@@ -136,6 +138,28 @@ export function mockReply(userText: string): { assistantText: string; response: 
   });
 
   return { assistantText: lang, response: sseResponse(stream) };
+}
+
+/** A single-card notice streamed as an OpenAI SSE stream (e.g. a rate-limit message). */
+export function noticeReply(title: string, body: string): Response {
+  const lang = [
+    "root = Card([header, note])",
+    `header = CardHeader("${forLang(title)}")`,
+    `note = Callout("neutral", "${forLang(title)}", "${forLang(body)}")`,
+  ].join("\n");
+  const pieces: string[] = [];
+  for (let i = 0; i < lang.length; i += 48) pieces.push(lang.slice(i, i + 48));
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const enc = new TextEncoder();
+      controller.enqueue(enc.encode(mockChunk({ role: "assistant" }, null)));
+      for (const piece of pieces) controller.enqueue(enc.encode(mockChunk({ content: piece }, null)));
+      controller.enqueue(enc.encode(mockChunk({}, "stop")));
+      controller.enqueue(enc.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return sseResponse(stream);
 }
 
 export const llmMode = () => config.mode;

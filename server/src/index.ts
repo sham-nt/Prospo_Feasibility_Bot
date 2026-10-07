@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config";
-import { directReply, llmMode, mockReply } from "./llm";
+import { directReply, llmMode, mockReply, noticeReply } from "./llm";
 import { getState, initHarness, recordTurn } from "./harness";
 import { capture, isSubmission } from "./capture";
 import { finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
@@ -56,6 +56,20 @@ app.get("/api/debug/sessions/:id", (c) => {
   return c.json({ ...row, payload: row.payload ? JSON.parse(row.payload) : null, draft: undefined });
 });
 
+/** In-memory per-client/day cap on NEW sessions. Resets on restart; a Postgres or
+ *  Redis counter would replace it in production. Returns true when the client is over. */
+const dailyHits = new Map<string, { day: string; count: number }>();
+function overDailyCap(clientKey: string): boolean {
+  const day = new Date().toISOString().slice(0, 10);
+  const rec = dailyHits.get(clientKey);
+  if (!rec || rec.day !== day) {
+    dailyHits.set(clientKey, { day, count: 1 });
+    return false;
+  }
+  rec.count += 1;
+  return rec.count > config.sessionsPerIpPerDay;
+}
+
 function lastUserText(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
@@ -86,9 +100,20 @@ app.post("/api/mri-chat", async (c) => {
   const sessionId = body.threadId?.trim() || "anonymous";
   const userText = lastUserText(messages);
 
+  // Abuse cap: only count the first turn of a genuinely new session.
+  const existing = getSession(sessionId);
+  if (!existing) {
+    const clientKey = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    if (overDailyCap(clientKey)) {
+      return noticeReply(
+        "Daily limit reached",
+        "You have started a lot of sessions today. Please come back tomorrow, or email the 12C team to carry on.",
+      );
+    }
+  }
+
   await recordTurn("user", userText);
   // Persist the running transcript so an abandoned chat still has something to extract.
-  const existing = getSession(sessionId);
   touchSession(sessionId, messages);
   const startedAt = existing?.created_at ?? new Date().toISOString();
 
