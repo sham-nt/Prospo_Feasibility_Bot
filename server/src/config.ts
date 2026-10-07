@@ -31,5 +31,8 @@ export const config = {
     baseUrl: env("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
     apiKey: llmApiKey,
     model: env("LLM_MODEL", "openai/gpt-4o-mini"),
+    // Cap per reply. Must cover reasoning tokens + the UI Lang, or reasoning models
+    // can finish before emitting any content. A contact-form turn needs ~600 Lang tokens.
+    maxTokens: Number(env("LLM_MAX_TOKENS", "1500")),
   },
 };

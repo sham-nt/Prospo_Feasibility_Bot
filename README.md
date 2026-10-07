@@ -83,18 +83,39 @@ Open http://localhost:5173.
 - **Phase 1 (integration spike): done.** End-to-end round-trip proven — `AgentInterface` → backend
   SSE of OpenUI Lang → rendered chat-library components; turns persisted to SQLite and resumed across
   a server restart; mock mode runs with no key.
-- Next: live external-LLM call behind the key (OpenRouter), then the full 7-stage MRI agent,
-  structured capture to the spec's output schema, and the 8 acceptance tests.
+- **Phase 2 (the MRI agent): done.** The full behavioural prompt is assembled from the
+  [`business-mri-chat` skill](.claude/skills/business-mri-chat/SKILL.md) in
+  [`server/src/mri-prompt.ts`](server/src/mri-prompt.ts): seven stages, one-question discipline,
+  the five-signal AI-fit test, the solution-pattern library with the human-in-the-loop gate, tone,
+  and guardrails — plus per-stage OpenUI rendering (a `Callout` verdict, a `Steps` next-steps card,
+  a contact `Form` with consent, `FollowUpBlock` suggestions). A code backstop in
+  [`server/src/index.ts`](server/src/index.ts) forces the proposal by turn 8 and the contact form by
+  turn 10. Verified live: the high-volume happy path reaches a **good** fit and renders the contact
+  form; a rare/organisational problem reaches an honest **poor** fit ("AI is not the first fix here");
+  a prompt-injection attempt is ignored.
+- Next (Phase 3): structured capture to the spec's output schema (`{layer, sub}` tags, fit signals,
+  solution pattern, contact) into a `sessions` table, completion + abandon finalisation, and caps.
+  Then the full eight acceptance tests (Phase 4).
+
+### A note on the model
+
+Reasoning models on OpenRouter's **free** pool can exhaust their token budget on hidden reasoning and
+return an empty reply, which renders nothing. Two mitigations are in place: `LLM_MAX_TOKENS` (default
+1500) leaves room for the UI Lang after reasoning, and the default free model
+(`apodex/apodex-1.1-mini:free`) returns content reliably on multi-turn. For a live demo, set
+`LLM_MODEL` to a cheap paid model (e.g. `google/gemini-2.5-flash`) on your own key — the shared free
+pool also rate-limits (429) under load.
 
 ## Layout
 
 ```
 .claude/skills/business-mri-chat/   the agent's behavioural spec (the MRI Phase 0 skill)
 server/                             Pi Durable agent service
-  src/config.ts                     env + direct/mock mode switch
+  src/config.ts                     env + direct/mock mode switch, model + max-tokens
   src/harness.ts                    Pi Durable harness, SQLite, turn recording
+  src/mri-prompt.ts                 the MRI agent system prompt (from the skill) + UI mapping
   src/llm.ts                        external LLM call (direct) + mock OpenUI Lang stream
-  src/index.ts                      Hono HTTP: /api/mri-chat, /health, /api/debug/state
+  src/index.ts                      Hono HTTP: /api/mri-chat, /health, /api/debug/state; turn backstop
   prompts/openui-chat.system.txt    generated OpenUI Lang prompt (artifact; see web/ gen:prompt)
 web/                                OpenUI generative-UI frontend
   src/App.tsx                       AgentInterface wired to the backend

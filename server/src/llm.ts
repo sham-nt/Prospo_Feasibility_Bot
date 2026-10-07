@@ -2,9 +2,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import OpenAI from "openai";
 import { config } from "./config";
+import { MRI_SYSTEM } from "./mri-prompt";
 
 type ChatMsg = { role: string; content?: unknown };
-type ReplyOpts = { messages: ChatMsg[]; signal: AbortSignal; onComplete?: (assistantText: string) => void };
+type ReplyOpts = {
+  messages: ChatMsg[];
+  signal: AbortSignal;
+  onComplete?: (assistantText: string) => void;
+  /** A turn-discipline instruction injected as a final system message (see index.ts). */
+  nudge?: string;
+};
 
 const toText = (c: unknown) => (typeof c === "string" ? c : JSON.stringify(c ?? ""));
 
@@ -17,13 +24,6 @@ function sseResponse(stream: ReadableStream<Uint8Array>): Response {
     },
   });
 }
-
-/**
- * Spike-level MRI behaviour. Phase 2 replaces this with the full system prompt
- * assembled from the business-mri-chat skill.
- */
-const MRI_INSTRUCTIONS =
-  "You are 12C's AI assistant on the website. In one short sentence, say you can help work out whether AI would help with a business problem, then ask the visitor to describe one thing in their business that takes too much time or money. Render your reply as a Card with a CardHeader and short TextContent. Plain English, short, no exclamation marks.";
 
 /** The base OpenUI Lang prompt generated from the chat library (see web/ `npm run gen:prompt`). */
 let basePromptCache: string | null = null;
@@ -43,8 +43,10 @@ async function streamChat(opts: {
   onComplete?: (text: string) => void;
 }): Promise<Response> {
   // Throws here on auth/billing/model errors, before streaming — caller may fall back.
+  // max_tokens must leave room for the UI Lang AFTER any reasoning tokens: reasoning
+  // models that run out of budget mid-think return empty content and render nothing.
   const upstream = await opts.client.chat.completions.create(
-    { model: opts.model, messages: opts.messages as never, stream: true },
+    { model: opts.model, messages: opts.messages as never, stream: true, max_tokens: config.llm.maxTokens },
     { signal: opts.signal },
   );
 
@@ -78,10 +80,13 @@ async function streamChat(opts: {
  */
 export function directReply(opts: ReplyOpts): Promise<Response> {
   const client = new OpenAI({ apiKey: config.llm.apiKey, baseURL: config.llm.baseUrl });
-  const system = `${MRI_INSTRUCTIONS}\n\n${baseOpenUIPrompt()}`;
+  // Base OpenUI prompt first (format + component signatures), MRI spec last so the
+  // task rules are the freshest context the model sees.
+  const system = `${baseOpenUIPrompt()}\n\n${MRI_SYSTEM}`;
   const messages = [
     { role: "system", content: system },
     ...opts.messages.map((m) => ({ role: m.role, content: toText(m.content) })),
+    ...(opts.nudge ? [{ role: "system", content: opts.nudge }] : []),
   ];
   return streamChat({ client, model: config.llm.model, messages, signal: opts.signal, onComplete: opts.onComplete });
 }
