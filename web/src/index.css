@@ -1,7 +1,8 @@
-/* 12C Business MRI — Phase 0
+/* Prospo (by 12C Studios)
    Neutral, restrained UI in the spirit of shadcn/ui, Linear and Geist:
-   one zinc grey scale, near-black primary, hairline borders, minimal shadow,
-   no gradients, colour used only semantically and muted.
+   one zinc grey scale, near-black primary, hairline borders, minimal shadow.
+   The only "colour" is a very faint monochrome gradient wash on the canvas so
+   the landing does not read as a blank white page; semantic tones stay muted.
    Loaded after the OpenUI stylesheet so these rules win. */
 
 :root {
@@ -58,7 +59,12 @@ body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  background: var(--canvas);
+  /* A whisper of a monochrome gradient: a soft light pool top-centre fading into
+     a faintly cooler floor. Keeps the page from looking like flat white paper
+     without introducing any hue. */
+  background:
+    radial-gradient(120% 70% at 50% -10%, #ffffff 0%, #fafafa 42%, #f4f4f5 100%),
+    var(--canvas);
 }
 
 /* Top bar: light, flat, one hairline. No gradient, no glow. */
@@ -74,33 +80,21 @@ body {
 }
 .mri-brand {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  gap: 8px;
 }
 .mri-logo {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 17px;
   letter-spacing: -0.02em;
   color: var(--text);
 }
-.mri-brand-sep {
-  color: var(--z-300);
-  font-weight: 400;
-}
 .mri-brand-sub {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.mri-brand-phase {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  background: var(--z-100);
-  border: 1px solid var(--border);
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 450;
+  color: var(--text-faint);
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
 }
 .mri-status {
   display: flex;
@@ -120,7 +114,83 @@ body {
 .mri-stage {
   flex: 1 1 auto;
   min-height: 0;
-  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+.mri-chat {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.mri-chat > * {
+  height: 100%;
+}
+
+/* ---------- Landing hero ---------- */
+/* Gives the empty landing something to say and look at. Restrained: a small mark,
+   a short headline and one line of copy, centred over the gradient canvas. */
+.mri-hero {
+  flex: 0 0 auto;
+  padding: 44px 20px 12px;
+}
+.mri-hero-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.mri-hero-mark {
+  color: var(--text);
+  opacity: 0.9;
+  margin-bottom: 18px;
+  display: inline-flex;
+}
+.mri-hero-badge {
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+}
+.mri-hero-title {
+  margin: 14px 0 0;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.mri-hero-sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 540px;
+}
+
+/* Once a conversation has started, the hero collapses and the chat takes over. */
+.mri-app:has(.openui-shell-thread-message-user__content) .mri-hero,
+.mri-app:has(.openui-shell-thread-message-assistant__content) .mri-hero {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mri-hero {
+    padding: 28px 18px 8px;
+  }
+  .mri-hero-title {
+    font-size: 23px;
+  }
+  .mri-hero-sub {
+    font-size: 14px;
+  }
 }
 
 /* ---------- OpenUI overrides ---------- */
@@ -259,10 +329,16 @@ textarea {
   color: var(--text-faint);
 }
 
-/* Buttons: solid near-black primary, no colour glow */
+/* Buttons: solid near-black primary, no colour glow. The label/icon must be light —
+   the theme leaves primary text at the neutral near-black, which is invisible on the
+   near-black fill, so force it white (same fix as the composer send icon). */
 .openui-button-base-primary {
   font-weight: 500 !important;
   box-shadow: none !important;
+  color: #fafafa !important;
+}
+.openui-button-base-primary svg {
+  color: #fafafa !important;
 }
 
 /* Composer: a clean white card centred under the column */
@@ -280,6 +356,35 @@ textarea {
   border: 1px solid var(--border) !important;
   background: var(--surface) !important;
   box-shadow: var(--shadow-md);
+  /* Library default stacks the textarea above an action bar, which left the
+     placeholder floating at the top of a tall box. Lay it out as a single row:
+     the text field fills the width, the send button sits centred on the right. */
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 7px 8px 7px 16px !important;
+}
+.openui-agent-thread-composer__input {
+  flex: 1 1 auto;
+  align-self: center;
+}
+.openui-agent-thread-composer__action-bar {
+  flex: 0 0 auto;
+  align-items: center !important;
+}
+
+/* Send button: the primary icon button fills with the near-black accent, and its
+   arrow inherits currentColor — which was also near-black, so it vanished into the
+   square. Force the icon white and give it a touch more presence. */
+.openui-agent-thread-composer__submit-button {
+  color: #fafafa !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+}
+.openui-agent-thread-composer__submit-button .openui-icon-button-icon svg {
+  width: 17px !important;
+  height: 17px !important;
 }
 
 /* Starter suggestion chips */

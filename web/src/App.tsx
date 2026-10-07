@@ -5,6 +5,12 @@ import "./index.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 
+// Visitor-facing product name. The internal methodology ("Business MRI", "Phase 0")
+// is never shown to the visitor — only the product name and the company. Change the
+// product name here in one place. The company stays for the AI's required disclosure.
+const PRODUCT = "Prospo";
+const COMPANY = "12C";
+
 // POSTs { threadId, runId, messages, tools, context } and parses the OpenAI
 // Chat Completions stream the backend returns (OpenUI Lang).
 const llm = fetchLLM({
@@ -53,34 +59,45 @@ export function App() {
     <div className="mri-app">
       <header className="mri-topbar">
         <div className="mri-brand">
-          <span className="mri-logo">12C</span>
-          <span className="mri-brand-sep">/</span>
-          <span className="mri-brand-sub">Business MRI</span>
-          <span className="mri-brand-phase">Phase&nbsp;0</span>
+          <span className="mri-logo">{PRODUCT}</span>
+          <span className="mri-brand-sub">by {COMPANY} Studios</span>
         </div>
         <div className="mri-status">
           <span className="mri-status-dot" />
-          AI assistant
+          Online
         </div>
       </header>
 
       <main className="mri-stage">
-        <AgentInterface
-          llm={llm}
-          componentLibrary={openuiChatLibrary}
-          agentName="12C AI assistant"
-          theme={{ mode: "light", lightTheme: brandTheme }}
-          starters={[
-            {
-              displayText: "We key in 400 supplier invoices a month by hand",
-              prompt: "We key in about 400 supplier invoices a month by hand",
-            },
-            {
-              displayText: "We want to use AI but are not sure where",
-              prompt: "We want to use AI but are not sure where to start",
-            },
-          ]}
-        />
+        {/* Landing hero. Collapses once the first message is sent (see index.css :has()). */}
+        <section className="mri-hero" aria-hidden="false">
+          <div className="mri-hero-inner">
+            <div className="mri-hero-mark" aria-hidden="true">
+              <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
+                <rect x="1" y="1" width="46" height="46" rx="12" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
+                <path d="M15 30c3-10 7-15 9-15s3 4 3 9c0 4 1 6 2 6s2-2 4-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="33" cy="17" r="2.2" fill="currentColor" />
+              </svg>
+            </div>
+            <span className="mri-hero-badge">AI readiness check</span>
+            <h1 className="mri-hero-title">See where AI actually fits in your business</h1>
+            <p className="mri-hero-sub">
+              Describe one task that eats time or money. In a few short questions {PRODUCT} tells you,
+              honestly, whether AI would help and what {COMPANY} would build if it would.
+            </p>
+          </div>
+        </section>
+
+        <div className="mri-chat">
+          {/* No starter chips: for this use case the visitor states their own problem; the
+              hero copy and the agent's opening message do the nudging. */}
+          <AgentInterface
+            llm={llm}
+            componentLibrary={openuiChatLibrary}
+            agentName={PRODUCT}
+            theme={{ mode: "light", lightTheme: brandTheme }}
+          />
+        </div>
       </main>
     </div>
   );
