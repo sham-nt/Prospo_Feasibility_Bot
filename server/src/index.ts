@@ -5,7 +5,8 @@ import { config } from "./config";
 import { directReply, llmMode, mockReply, noticeReply, thankYouReply } from "./llm";
 import { closeHarness, getState, initHarness, recordTurn } from "./harness";
 import { capture, extractContact, isSubmission } from "./capture";
-import { closeStore, finalizeSession, getSession, initStore, listSessions, listStaleOpen, touchSession } from "./store";
+import { closeStore, finalizeSession, getSession, initStore, listSessions, listSessionsFull, listStaleOpen, touchSession } from "./store";
+import { renderSessionDetail, renderSessionsPage } from "./admin";
 
 await initHarness();
 initStore();
@@ -45,6 +46,14 @@ const app = new Hono();
 app.use("/api/*", cors({ origin: config.corsOrigin, allowMethods: ["GET", "POST", "OPTIONS"] }));
 
 app.get("/health", (c) => c.json({ ok: true, gateway: llmMode() }));
+
+// A small built-in observability view of the collected sessions (local dev; no auth).
+app.get("/admin", (c) => c.html(renderSessionsPage(listSessionsFull())));
+app.get("/admin/sessions/:id", (c) => {
+  const row = getSession(c.req.param("id"));
+  if (!row) return c.html("<p style='font-family:sans-serif;padding:24px'>Session not found. <a href='/admin'>Back</a></p>", 404);
+  return c.html(renderSessionDetail(row));
+});
 
 app.get("/api/debug/state", async (c) => c.json(await getState()));
 

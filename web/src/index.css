@@ -56,12 +56,13 @@ body {
   flex-direction: column;
   height: 100dvh;
   color: var(--text);
-  /* Emerald aurora over near-black, brightest top-centre, fading to black — the
-     ogha hero glow. A faint green floor keeps the lower half from going flat. */
+  /* A single soft emerald glow high above the fold, fading smoothly to black well
+     before the middle of the screen — so there is no visible ring/band ("line")
+     across a tall, wide window. The rest of the canvas is solid near-black. */
   background:
-    radial-gradient(90% 60% at 50% -8%, rgba(16, 163, 127, 0.28) 0%, rgba(16, 163, 127, 0.08) 32%, transparent 60%),
-    radial-gradient(70% 50% at 50% 120%, rgba(16, 163, 127, 0.1) 0%, transparent 60%),
+    radial-gradient(1200px 520px at 50% -180px, rgba(16, 163, 127, 0.24) 0%, rgba(16, 163, 127, 0.06) 42%, transparent 72%),
     var(--bg);
+  background-repeat: no-repeat;
 }
 
 /* Top bar: a floating translucent pill, like ogha's nav. */

@@ -103,6 +103,13 @@ export function listSessions(limit = 50): SessionRow[] {
     .all(limit) as SessionRow[];
 }
 
+/** Like listSessions but includes the payload JSON — used by the admin/observability view. */
+export function listSessionsFull(limit = 200): SessionRow[] {
+  return db
+    .prepare(`SELECT session_id, name, company, email, message, source, status, completed, created_at, updated_at, payload FROM sessions ORDER BY updated_at DESC LIMIT ?`)
+    .all(limit) as SessionRow[];
+}
+
 /** Open sessions idle longer than `olderThanMs` — candidates for abandon finalization. */
 export function listStaleOpen(olderThanMs: number): SessionRow[] {
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
